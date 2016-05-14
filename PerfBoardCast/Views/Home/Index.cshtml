@@ -1,0 +1,87 @@
+﻿@{
+    ViewBag.Title = "Home Page";
+}
+
+
+@section scripts {
+
+    <script src="~/Scripts/jquery.signalR-2.2.0.js"></script>
+    <script src="~/SignalR/hubs"></script>
+    <script src="~/Scripts/perfBroadcast.js"></script>
+    <script src="~/Scripts/SmoothieChart.js"></script>
+    
+    
+    <script>
+
+        var ChartEntry = function (name) {
+            var self = this;
+            this.name = name;
+
+            self.chart = new SmoothieChart({
+                millisPerPixel: 50,  labels: {
+                    fontSize : 15
+                }
+            });
+            
+            self.timeSeries = new TimeSeries();
+            self.chart.addTimeSeries(self.timeSeries, {
+                strokeStyle: 'rgb(0, 255, 0)', fillStyle: 'rgba(0, 255, 0, 0.4)', lineWidth:3 
+            });
+        };
+
+        ChartEntry.prototype = {
+
+            addValue : function(value)
+            {
+                var self = this;
+                self.timeSeries.append(new Date().getTime(), value);
+            },
+
+            start : function()
+            {
+                var self = this;
+                var canvas = document.getElementById("perfCanvas");
+                self.chart.streamTo(canvas);
+            }
+        };
+
+        var perfHub;
+
+        var chartEntry = new ChartEntry("CPU");
+        chartEntry.start();
+
+        $(document).ready(function () {
+
+            // initialize your hub
+            perfHub = $.connection.perfHub;
+            $.connection.hub.logging = true;
+            $.connection.hub.start();
+
+            perfHub.client.newCounters = function (counters) {
+                console.log(counters);
+                chartEntry.addValue(counters[0].value);
+            };
+
+            // client side invokes
+            perfHub.client.subscribeMessage = function (message) {
+                console.log(message);
+            }
+        });
+
+        // we are send message to server -> then server send and invoke by code above //
+        function send() {
+            perfHub.server.send("test test test");
+        }
+
+    </script>
+}
+
+
+
+<br /><br /><br /><br />
+
+<input type="button" value="send" onclick="send()" />
+
+<canvas id="perfCanvas" width="800" height="300">
+
+</canvas>
